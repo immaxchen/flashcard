@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flashcard</title>
+  <style>
+    body {
+      margin: 0;
+      background: #F4BB44;
+      font-family: arial, sans-serif;
+    }
+
+    #navbar {
+      background-color: #333;
+      position: fixed;
+      top: 0;
+      width: 100vw;
+      display: flex;
+      text-align: center;
+    }
+
+    #navbar a {
+      flex: 1;
+      color: #f2f2f2;
+      padding: 0.75rem 1rem 0.5rem 1rem;
+    }
+
+    #navbar a:hover {
+      cursor: pointer;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #card-div {
+      padding: 1rem 1.25rem;
+      cursor: pointer;
+      font-size: 2rem;
+    }
+  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0" />
+</head>
+
+<body>
+  <div id="navbar">
+    <input type="file" id="csv-file-input" accept=".csv" hidden>
+    <a onclick="csvFileInput.click()">
+      <span class="material-symbols-rounded">
+        database
+      </span>
+    </a>
+    <a onclick="toogleReplacement()">
+      <span class="material-symbols-rounded" id="toogle-repl">
+        sync_disabled
+      </span>
+    </a>
+    <a href="https://github.com/immaxchen/flashcard">
+      <span class="material-symbols-rounded">
+        home
+      </span>
+    </a>
+    <a onclick="toogleDefaultSide()">
+      <span class="material-symbols-rounded" id="toogle-side">
+        flip_to_front
+      </span>
+    </a>
+    <a onclick="nextCard()">
+      <span class="material-symbols-rounded">
+        next_plan
+      </span>
+    </a>
+  </div>
+
+  <div id="container">
+    <div id="card-div">
+    </div>
+  </div>
+
+  <script>
+    const appData = localStorage.hasOwnProperty("appData") ?
+      JSON.parse(localStorage.getItem("appData")) :
+      {
+        sample_with_replacement: 0,
+        default_side: 0,
+        current_side: 0,
+        cards: [["Hello", "World!"]],
+        indexers: [0],
+        i: 0
+      };
+
+    window.onbeforeunload = function () {
+      localStorage.setItem("appData", JSON.stringify(appData));
+    }
+
+    function refreshButtons() {
+      const btnRepl = document.getElementById("toogle-repl");
+      if (appData.sample_with_replacement) {
+        btnRepl.innerText = "sync";
+      } else {
+        btnRepl.innerText = "sync_disabled";
+      }
+      const btnSide = document.getElementById("toogle-side");
+      if (appData.default_side) {
+        btnSide.innerText = "flip_to_back";
+      } else {
+        btnSide.innerText = "flip_to_front";
+      }
+    }
+
+    function toogleReplacement() {
+      appData.sample_with_replacement = 1 - appData.sample_with_replacement;
+      refreshButtons();
+      if (!appData.sample_with_replacement) {
+        shuffleCards();
+        showCard();
+      }
+    }
+
+    function toogleDefaultSide() {
+      appData.default_side = 1 - appData.default_side;
+      refreshButtons();
+    }
+
+    const csvFileInput = document.getElementById("csv-file-input");
+    csvFileInput.onchange = function () {
+      const file = csvFileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = function () {
+        appData.cards.length = 0
+        const csvData = reader.result.trim();
+        const rows = csvData.split("\n");
+        const columnSeparator = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+        for (let i = 0; i < rows.length; i++) {
+          const columns = rows[i].trim().split(columnSeparator);
+          for (let j = 0; j < columns.length; j++) {
+            columns[j] = columns[j].replace(/^"(.*)"$/g, "$1").replace('""', '"');
+          }
+          appData.cards.push(columns);
+        }
+        appData.indexers = [...Array(appData.cards.length).keys()];
+        shuffleCards();
+        showCard();
+      };
+      reader.readAsText(file);
+    }
+
+    function shuffleCards() {
+      appData.indexers.sort(() => 0.5 - Math.random());
+      appData.i = 0;
+      appData.current_side = appData.default_side;
+    }
+
+    function showCard() {
+      card.innerText = appData.cards[appData.indexers[appData.i]][appData.current_side];
+    }
+
+    function nextCard() {
+      if (appData.sample_with_replacement) {
+        appData.i = Math.floor(Math.random() * appData.indexers.length);
+      } else {
+        appData.i++;
+        if (appData.i >= appData.indexers.length) shuffleCards();
+      }
+      appData.current_side = appData.default_side;
+      showCard();
+    }
+
+    const card = document.getElementById("card-div");
+    card.onclick = function () {
+      appData.current_side = 1 - appData.current_side;
+      showCard();
+    }
+
+    refreshButtons();
+    showCard();
+  </script>
+</body>
+
+</html>
