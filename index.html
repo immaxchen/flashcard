@@ -44,13 +44,14 @@
       font-size: 2rem;
     }
   </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0" />
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0" />
 </head>
 
 <body>
   <div id="navbar">
     <input type="file" id="csv-file-input" accept=".csv" hidden>
-    <a onclick="csvFileInput.click()">
+    <a onclick="uploadDatabase()">
       <span class="material-symbols-rounded">
         database
       </span>
@@ -78,24 +79,46 @@
   </div>
 
   <div id="container">
-    <div id="card-div">
+    <div id="card-div" onclick="flipCard()">
     </div>
   </div>
 
   <script>
-    const appData = localStorage.hasOwnProperty("appData") ?
-      JSON.parse(localStorage.getItem("appData")) :
-      {
+    function saveCards() {
+      localStorage.setItem("appData.cards", JSON.stringify(appData.cards));
+    }
+
+    function saveOrder() {
+      localStorage.setItem("appData.order", JSON.stringify(appData.order));
+    }
+
+    function saveState() {
+      localStorage.setItem("appData.sample_with_replacement", JSON.stringify(appData.sample_with_replacement));
+      localStorage.setItem("appData.default_side", JSON.stringify(appData.default_side));
+      localStorage.setItem("appData.current_side", JSON.stringify(appData.current_side));
+      localStorage.setItem("appData.i", JSON.stringify(appData.i));
+    }
+
+    function loadAppData() {
+      return {
+        cards: JSON.parse(localStorage.getItem("appData.cards")),
+        order: JSON.parse(localStorage.getItem("appData.order")),
+        sample_with_replacement: JSON.parse(localStorage.getItem("appData.sample_with_replacement")),
+        default_side: JSON.parse(localStorage.getItem("appData.default_side")),
+        current_side: JSON.parse(localStorage.getItem("appData.current_side")),
+        i: JSON.parse(localStorage.getItem("appData.i")),
+      };
+    }
+
+    function initAppData() {
+      return {
+        cards: [["Hello", "World!"]],
+        order: [0],
         sample_with_replacement: 0,
         default_side: 0,
         current_side: 0,
-        cards: [["Hello", "World!"]],
-        indexers: [0],
-        i: 0
+        i: 0,
       };
-
-    window.onbeforeunload = function () {
-      localStorage.setItem("appData", JSON.stringify(appData));
     }
 
     function refreshButtons() {
@@ -113,17 +136,49 @@
       }
     }
 
+    const card = document.getElementById("card-div");
+    function showCard() {
+      card.innerText = appData.cards[appData.order[appData.i]][appData.current_side];
+    }
+
+    const appData = localStorage.hasOwnProperty("appData.i") ? loadAppData() : initAppData();
+    refreshButtons();
+    showCard();
+
+    function shuffleCards() {
+      appData.order.sort(() => 0.5 - Math.random());
+      appData.current_side = appData.default_side;
+      appData.i = 0;
+      saveOrder();
+      saveState();
+      showCard();
+    }
+
+    function nextCard() {
+      appData.current_side = appData.default_side;
+      appData.i = appData.sample_with_replacement ? Math.floor(Math.random() * appData.order.length) : appData.i + 1;
+      if (appData.i >= appData.order.length) shuffleCards();
+      saveState();
+      showCard();
+    }
+
+    function flipCard() {
+      appData.current_side = 1 - appData.current_side;
+      saveState();
+      showCard();
+    }
+
     function toogleReplacement() {
-      appData.sample_with_replacement = 1 - appData.sample_with_replacement;
-      refreshButtons();
-      if (!appData.sample_with_replacement) {
+      if (confirm("This action will shuffle the cards, continue?")) {
+        appData.sample_with_replacement = 1 - appData.sample_with_replacement;
         shuffleCards();
-        showCard();
+        refreshButtons();
       }
     }
 
     function toogleDefaultSide() {
       appData.default_side = 1 - appData.default_side;
+      saveState();
       refreshButtons();
     }
 
@@ -132,53 +187,24 @@
       const file = csvFileInput.files[0];
       const reader = new FileReader();
       reader.onload = function () {
-        appData.cards.length = 0
         const csvData = reader.result.trim();
         const rows = csvData.split("\n");
         const columnSeparator = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+        appData.cards.length = 0;
         for (let i = 0; i < rows.length; i++) {
-          const columns = rows[i].trim().split(columnSeparator);
-          for (let j = 0; j < columns.length; j++) {
-            columns[j] = columns[j].replace(/^"(.*)"$/g, "$1").replace('""', '"');
-          }
+          const columns = rows[i].trim().split(columnSeparator).map(s => s.replace(/^"(.*)"$/, "$1").replace(/""/g, '"'));
           appData.cards.push(columns);
         }
-        appData.indexers = [...Array(appData.cards.length).keys()];
+        appData.order = [...Array(appData.cards.length).keys()];
+        saveCards();
         shuffleCards();
-        showCard();
       };
       reader.readAsText(file);
     }
 
-    function shuffleCards() {
-      appData.indexers.sort(() => 0.5 - Math.random());
-      appData.i = 0;
-      appData.current_side = appData.default_side;
+    function uploadDatabase() {
+      csvFileInput.click();
     }
-
-    function showCard() {
-      card.innerText = appData.cards[appData.indexers[appData.i]][appData.current_side];
-    }
-
-    function nextCard() {
-      if (appData.sample_with_replacement) {
-        appData.i = Math.floor(Math.random() * appData.indexers.length);
-      } else {
-        appData.i++;
-        if (appData.i >= appData.indexers.length) shuffleCards();
-      }
-      appData.current_side = appData.default_side;
-      showCard();
-    }
-
-    const card = document.getElementById("card-div");
-    card.onclick = function () {
-      appData.current_side = 1 - appData.current_side;
-      showCard();
-    }
-
-    refreshButtons();
-    showCard();
   </script>
 </body>
 
